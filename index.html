@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Radial Cosmology Comic Odyssey — Spectral Journey, Sacred Geometry & 6502 Bus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>☸️ Radial Cosmology Comic Odyssey <span class="badge">Q16.16 • S16 • 6502 Bus</span></h1>
+    <div id="hud-nodes">Lotus Petals: 0 / 6</div>
+  </header>
+
+  <main class="odyssey-layout">
+    <section class="canvas-panel">
+      <div class="act-header">
+        <strong id="hud-act-title">Act I: Nascence — Golden Dunes</strong>
+        <span id="hud-act-sub">Solo Cello Drone • Minimalist Ochre Horizon</span>
+      </div>
+
+      <canvas id="odyssey-canvas" width="680" height="480"></canvas>
+
+      <div class="toolbar">
+        <button id="btn-audio">Sound: Muted</button>
+        <button id="btn-xray">6502 X-Ray: On</button>
+      </div>
+    </section>
+
+    <section class="controls-panel">
+      <h3>Comic Acts (Spectral Journey Bands)</h3>
+      <div class="btn-grid">
+        <button data-act="0">Act I: Nascence</button>
+        <button data-act="1">Act II: The Bridge</button>
+        <button data-act="2">Act III: The Tower</button>
+        <button data-act="3">Act IV: Apotheosis</button>
+      </div>
+
+      <h3>Sacred Geometry S16 Operators</h3>
+      <div class="btn-row">
+        <button data-op="DRIFT">Drift (D: +1)</button>
+        <button data-op="COLLAPSE">Collapse (C: -1)</button>
+        <button data-op="RESONANCE">Resonance (R: XOR F)</button>
+      </div>
+
+      <h3>Deterministic Run Receipt (SHA-256)</h3>
+      <button id="btn-receipt">Generate 6502 &amp; S16 Receipt</button>
+      <textarea id="receipt-output" rows="7" readonly placeholder="Tap to generate SHA-256 state receipt..."></textarea>
+    </section>
+  </main>
+
+  <script type="module" src="src/odyssey-app.js"></script>
+</body>
+</html>
