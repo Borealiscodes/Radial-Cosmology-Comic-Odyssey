@@ -1,52 +1,43 @@
-/**
- * src/spectral-journey-audio.js — 4-Band Spectral Journey-Inspired WebAudio Synthesizer (Ledger 2)
- * Decomposes harmonic synthesis into 4 live spectral bands whose real-time envelope
- * amplitudes drive brush width, ribbon velocity, and gold/cerulean luminance:
- *   Band 0: Sub-Bass Cello Drone (130.81 - 196.00 Hz)
- *   Band 1: Plucked Harp Arpeggios (261.63 - 440.00 Hz)
- *   Band 2: Airy Wind Flute Harmonics (523.25 - 659.25 Hz)
- *   Band 3: Apotheosis Summit Choir Pad (392.00 - 783.99 Hz)
- *
- * Signed-off-by: Borealis Serenity Hedling <chguard-sentinel@vaked.dev>
- */
-
 export const ACT_SPECTRAL_PROFILES = [
   {
     act: 1,
     title: "Act I: Nascence — Golden Dunes",
-    subtitle: "Solo Cello Drone • Minimalist Ochre Horizon",
-    notes: [130.81, 146.83, 196.00, 164.81], // C3, D3, G3, E3
+    subtitle: "Warm Cello Drone • Painting Ochre & Gold Ribbons",
+    notes: [130.81, 146.83, 196.00, 164.81],
     activeBands: 1,
+    strokeColor: "rgba(253, 224, 71, 0.82)",
   },
   {
     act: 2,
     title: "Act II: The Bridge & Sunken City",
-    subtitle: "Cello + Harp Arpeggios • Interleaved Navarasa Currents",
-    notes: [261.63, 329.63, 392.00, 440.00], // C4, E4, G4, A4
+    subtitle: "Cello + Acoustic Harp • Painting Cerulean Currents",
+    notes: [261.63, 329.63, 392.00, 440.00],
     activeBands: 2,
+    strokeColor: "rgba(125, 211, 252, 0.85)",
   },
   {
     act: 3,
     title: "Act III: The Tower — Ascending Spiral",
-    subtitle: "Cello + Harp + Wind Flute • Crystalline Snow Mandala",
-    notes: [523.25, 587.33, 659.25, 587.33], // C5, D5, E5, D5
+    subtitle: "Cello + Harp + Wooden Flute • Painting Lavender Light",
+    notes: [392.00, 440.00, 523.25, 587.33],
     activeBands: 3,
+    strokeColor: "rgba(216, 180, 254, 0.88)",
   },
   {
     act: 4,
     title: "Act IV: Apotheosis — Summit Mandala",
-    subtitle: "Full 4-Band Spectral Choir • 16-Sector Radial Bloom",
-    notes: [392.00, 523.25, 659.25, 783.99], // G4, C5, E5, G5
+    subtitle: "Full 4-Band Spectral Harmony • Mirrored Sacred Geometry",
+    notes: [392.00, 523.25, 659.25, 783.99],
     activeBands: 4,
+    strokeColor: "rgba(254, 249, 195, 0.92)",
   },
 ];
 
 export function createSpectralJourneyAudio() {
-  let muted = true; // Mute-by-default constitutional rule
+  let muted = true;
   let ctx = null;
   let noteStep = 0;
-
-  // Live spectral band energy meters [0.0 .. 1.0] read by Canvas renderer
+  let lastTriggerMs = 0;
   const bandEnergies = new Float32Array(4);
 
   const ensureCtx = () => {
@@ -54,15 +45,13 @@ export function createSpectralJourneyAudio() {
       const Ctor = window.AudioContext || window.webkitAudioContext;
       if (Ctor) ctx = new Ctor();
     }
-    if (ctx && ctx.state === "suspended") {
-      ctx.resume();
-    }
+    if (ctx && ctx.state === "suspended") ctx.resume();
     return ctx;
   };
 
-  const triggerVoice = (freqHz, waveType, gainPeak, durationSec) => {
+  const triggerMeditativeVoice = (freqHz, waveType, gainPeak, durationSec) => {
     const ac = ensureCtx();
-    if (!ac) return;
+    if (!ac || !Number.isFinite(freqHz)) return;
 
     const now = ac.currentTime;
     const osc = ac.createOscillator();
@@ -73,11 +62,11 @@ export function createSpectralJourneyAudio() {
     osc.frequency.setValueAtTime(freqHz, now);
 
     filter.type = "lowpass";
-    filter.frequency.setValueAtTime(1400, now);
-    filter.frequency.exponentialRampToValueAtTime(420, now + durationSec);
+    filter.frequency.setValueAtTime(720, now);
+    filter.frequency.exponentialRampToValueAtTime(280, now + durationSec);
 
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(gainPeak, now + 0.03);
+    gain.gain.linearRampToValueAtTime(gainPeak, now + 0.14);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
 
     osc.connect(filter);
@@ -85,7 +74,7 @@ export function createSpectralJourneyAudio() {
     gain.connect(ac.destination);
 
     osc.start(now);
-    osc.stop(now + durationSec + 0.05);
+    osc.stop(now + durationSec + 0.08);
   };
 
   return {
@@ -98,26 +87,31 @@ export function createSpectralJourneyAudio() {
     getBandEnergies: () => bandEnergies,
     decayBands: () => {
       for (let i = 0; i < 4; i++) {
-        bandEnergies[i] = Math.max(0.08, bandEnergies[i] * 0.94);
+        bandEnergies[i] = Math.max(0.08, bandEnergies[i] * 0.95);
       }
     },
     triggerHarmonicPulse: (actIndex, s16State) => {
-      const profile = ACT_SPECTRAL_PROFILES[Math.max(0, Math.min(3, actIndex))];
-      const freq = profile.notes[(noteStep + s16State) % profile.notes.length];
+      const idx = Math.max(0, Math.min(3, actIndex | 0));
+      const profile = ACT_SPECTRAL_PROFILES.at(idx);
+      const freq = profile.notes.at((noteStep + s16State) % profile.notes.length);
       noteStep++;
 
-      // Energize active spectral bands for visual brush coupling
       for (let b = 0; b < profile.activeBands; b++) {
         bandEnergies[b] = Math.min(1.0, 0.55 + ((s16State + b) % 4) * 0.12);
       }
 
+      const nowMs = typeof performance !== "undefined" ? performance.now() : 0;
+      if (nowMs - lastTriggerMs < 180) return;
+      lastTriggerMs = nowMs;
+
       if (!muted) {
-        // Band 0: Warm Cello Drone
-        triggerVoice(profile.notes[0] * 0.5, "sawtooth", 0.032, 2.2);
-        // Band 1+: Plucked Harp / Flute / Choir intervals
-        if (profile.activeBands >= 2) triggerVoice(freq, "triangle", 0.065, 1.5);
-        if (profile.activeBands >= 3) triggerVoice(freq * 1.5, "sine", 0.04, 1.8);
-        if (profile.activeBands >= 4) triggerVoice(freq * 2.0, "sine", 0.035, 2.4);
+        // Warm sine cello voice (Act I+)
+        triggerMeditativeVoice(freq, "sine", 0.09, 2.6);
+        triggerMeditativeVoice(profile.notes.at(0) * 0.5, "sine", 0.06, 3.0);
+        // Harp, flute & summit choir layers (Acts II-IV)
+        if (profile.activeBands >= 2) triggerMeditativeVoice(freq * 1.5, "triangle", 0.045, 2.1);
+        if (profile.activeBands >= 3) triggerMeditativeVoice(freq * 2.0, "sine", 0.032, 2.4);
+        if (profile.activeBands >= 4) triggerMeditativeVoice(freq * 2.5, "sine", 0.025, 2.8);
       }
     },
   };

@@ -1,14 +1,9 @@
-/**
- * src/odyssey-app.js — Multi-Act Radial Comic Odyssey Controller & 60 Hz Loop
- *
- * Signed-off-by: Borealis Serenity Hedling <chguard-sentinel@vaked.dev>
- */
-
 import { toQ16, fromQ16 } from "./core.js";
 import {
   ARENA_W,
   ARENA_H,
   createOdysseyState,
+  addBrushStroke,
   triggerRadialChime,
   stepOdysseyFrame,
   buildOdysseyReceipt,
@@ -36,7 +31,7 @@ function initComicOdyssey() {
   const keys = new Set();
 
   const syncHud = () => {
-    const profile = ACT_SPECTRAL_PROFILES[state.actIndex];
+    const profile = ACT_SPECTRAL_PROFILES.at(state.actIndex);
     const lit = state.nodes.filter((n) => n.illuminated).length;
     if (actTitleEl) actTitleEl.textContent = profile.title;
     if (actSubEl) actSubEl.textContent = profile.subtitle;
@@ -45,7 +40,6 @@ function initComicOdyssey() {
 
   syncHud();
 
-  // Touch / Pointer steering + Chime pulse
   canvas?.addEventListener("pointerdown", (ev) => {
     ev.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -53,6 +47,7 @@ function initComicOdyssey() {
     const y = ((ev.clientY - rect.top) / rect.height) * ARENA_H;
     pointerTarget = { x, y };
 
+    state = addBrushStroke(state, x, y, x + 0.5, y + 0.5, 9);
     state = triggerRadialChime(state);
     audio.triggerHarmonicPulse(state.actIndex, state.sacredGeo.s16State);
     syncHud();
@@ -61,10 +56,11 @@ function initComicOdyssey() {
   canvas?.addEventListener("pointermove", (ev) => {
     if (!pointerTarget) return;
     const rect = canvas.getBoundingClientRect();
-    pointerTarget = {
-      x: ((ev.clientX - rect.left) / rect.width) * ARENA_W,
-      y: ((ev.clientY - rect.top) / rect.height) * ARENA_H,
-    };
+    const x = ((ev.clientX - rect.left) / rect.width) * ARENA_W;
+    const y = ((ev.clientY - rect.top) / rect.height) * ARENA_H;
+
+    state = addBrushStroke(state, pointerTarget.x, pointerTarget.y, x, y, 7.5);
+    pointerTarget = { x, y };
   });
 
   window.addEventListener("pointerup", () => {
@@ -85,7 +81,6 @@ function initComicOdyssey() {
     keys.delete(ev.key.toLowerCase());
   });
 
-  // Act I - IV Buttons
   document.querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const idx = Number(btn.getAttribute("data-act")) || 0;
@@ -95,7 +90,6 @@ function initComicOdyssey() {
     });
   });
 
-  // Sacred Geometry S_16 Operator Buttons (D, C, R)
   document.querySelectorAll("[data-op]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const op = btn.getAttribute("data-op");
@@ -104,56 +98,44 @@ function initComicOdyssey() {
       syncHud();
     });
   });
-
-  audioBtn?.addEventListener("click", () => {
-    const muted = audio.toggleMute();
-    audioBtn.textContent = muted ? "Sound: Muted" : "Sound: Spectral Journey (On)";
-  });
-
-  xrayBtn?.addEventListener("click", () => {
-    show6502Overlay = !show6502Overlay;
-    xrayBtn.textContent = show6502Overlay ? "6502 X-Ray: On" : "6502 X-Ray: Off";
-  });
-
-  document.getElementById("btn-receipt")?.addEventListener("click", () => {
-    const receipt = buildOdysseyReceipt(state);
-    if (receiptBox) receiptBox.value = JSON.stringify(receipt, null, 2);
-  });
-
-  let lastTime = performance.now();
-  let accumulator = 0;
-
-  function loop(now) {
-    accumulator += Math.min(100, now - lastTime);
-    lastTime = now;
-
-    while (accumulator >= FIXED_DT_MS) {
-      let ax = 0;
-      let ay = 0;
-
-      if (keys.has("arrowleft") || keys.has("a")) ax -= 420;
-      if (keys.has("arrowright") || keys.has("d")) ax += 420;
-      if (keys.has("arrowup") || keys.has("w")) ay -= 420;
-      if (keys.has("arrowdown") || keys.has("s")) ay += 420;
-
-      if (pointerTarget) {
-        const dx = pointerTarget.x - fromQ16(state.traveler.xQ16);
-        const dy = pointerTarget.y - fromQ16(state.traveler.yQ16);
-        ax += Math.max(-520, Math.min(520, dx * 4.5));
-        ay += Math.max(-520, Math.min(520, dy * 4.5));
-      }
-
-      state = stepOdysseyFrame(state, toQ16(ax), toQ16(ay));
-      audio.decayBands();
-      accumulator -= FIXED_DT_MS;
-    }
-
-    syncHud();
-    if (ctx) renderComicOdyssey(ctx, state, audio.getBandEnergies(), show6502Overlay);
-    requestAnimationFrame(loop);
-  }
-
-  requestAnimationFrame(loop);
+audioBtn?.addEventListener("click", () => {
+const muted = audio.toggleMute();
+audioBtn.textContent = muted ? "Sound: Muted" : "Sound: Spectral Journey (On)";
+});
+xrayBtn?.addEventListener("click", () => {
+show6502Overlay = !show6502Overlay;
+xrayBtn.textContent = show6502Overlay ? "6502 X-Ray: On" : "6502 X-Ray: Off";
+});
+document.getElementById("btn-receipt")?.addEventListener("click", () => {
+const receipt = buildOdysseyReceipt(state);
+if (receiptBox) receiptBox.value = JSON.stringify(receipt, null, 2);
+});
+let lastTime = performance.now();
+let accumulator = 0;
+function loop(now) {
+accumulator += Math.min(100, now - lastTime);
+lastTime = now;
+while (accumulator >= FIXED_DT_MS) {
+let ax = 0;
+let ay = 0;
+if (keys.has("arrowleft") || keys.has("a")) ax -= 420;
+if (keys.has("arrowright") || keys.has("d")) ax += 420;
+if (keys.has("arrowup") || keys.has("w")) ay -= 420;
+if (keys.has("arrowdown") || keys.has("s")) ay += 420;
+if (pointerTarget) {
+const dx = pointerTarget.x - fromQ16(state.traveler.xQ16);
+const dy = pointerTarget.y - fromQ16(state.traveler.yQ16);
+ax += Math.max(-520, Math.min(520, dx * 4.5));
+ay += Math.max(-520, Math.min(520, dy * 4.5));
 }
-
+state = stepOdysseyFrame(state, toQ16(ax), toQ16(ay));
+audio.decayBands();
+accumulator -= FIXED_DT_MS;
+}
+syncHud();
+if (ctx) renderComicOdyssey(ctx, state, audio.getBandEnergies(), show6502Overlay);
+requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+}
 window.addEventListener("DOMContentLoaded", initComicOdyssey);

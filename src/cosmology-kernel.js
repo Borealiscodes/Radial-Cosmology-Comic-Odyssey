@@ -1,11 +1,3 @@
-/**
- * src/cosmology-kernel.js — 4-Act Radial Mandala Kernel, 14-Segment Verlet Ribbon & 6502 Stepper (Ledger 1)
- * Unites Q16.16 wind-glide traversal, concentric lotus mandala nodes, S_16 sacred
- * geometry operators, and cycle-accurate 6502 register updates with SHA-256 receipts.
- *
- * Signed-off-by: Borealis Serenity Hedling <chguard-sentinel@vaked.dev>
- */
-
 import { toQ16, fromQ16, qAdd, qSub, qMul, sha256Hex } from "./core.js";
 import { createSacredGeometryState, applySacredOperator } from "./buddhism-algebra.js";
 import { createCpu6502State, stepCpu6502Cycle } from "./cpu6502-bus.js";
@@ -16,7 +8,6 @@ export const CENTER_X = 340;
 export const CENTER_Y = 235;
 
 export function createRadialNodesForAct(actIndex) {
-  // Concentric dihedral lotus ring: 6 petals in Act I -> 16 petals in Act IV
   const count = 6 + actIndex * 3 + (actIndex === 3 ? 1 : 0);
   const radius = 115 + actIndex * 18;
   return Array.from({ length: count }, (_, i) => {
@@ -54,11 +45,28 @@ export function createOdysseyState(actIndex = 0) {
       vyQ16: 0,
     },
     ribbon,
+    paintStrokes: [],
     nodes: createRadialNodesForAct(clampedAct),
     sacredGeo: createSacredGeometryState(),
     cpu6502: createCpu6502State(),
     pulseRadiusQ16: 0,
   };
+}
+
+export function addBrushStroke(state, x1, y1, x2, y2, width = 7) {
+  const stroke = {
+    x1Q16: toQ16(x1),
+    y1Q16: toQ16(y1),
+    x2Q16: toQ16(x2),
+    y2Q16: toQ16(y2),
+    actIndex: state.actIndex,
+    op: state.sacredGeo.samsaraLotus.activeOperator,
+    width,
+  };
+  const nextStrokes = state.paintStrokes.length >= 600
+    ? [...state.paintStrokes.slice(1), stroke]
+    : [...state.paintStrokes, stroke];
+  return { ...state, paintStrokes: nextStrokes };
 }
 
 export function triggerRadialChime(state, opName = null) {
@@ -79,11 +87,13 @@ export function stepOdysseyFrame(state, accelXQ16 = 0, accelYQ16 = 0) {
   const dtQ16 = toQ16(1.0 / 60.0);
   const dampQ16 = toQ16(0.95);
 
-  // 1. Damped Q16.16 traveler wind-glide
+  const prevXQ16 = state.traveler.xQ16;
+  const prevYQ16 = state.traveler.yQ16;
+
   let vx = qMul(qAdd(state.traveler.vxQ16, qMul(accelXQ16, dtQ16)), dampQ16);
   let vy = qMul(qAdd(state.traveler.vyQ16, qMul(accelYQ16, dtQ16)), dampQ16);
-  let x = qAdd(state.traveler.xQ16, qMul(vx, dtQ16));
-  let y = qAdd(state.traveler.yQ16, qMul(vy, dtQ16));
+  let x = qAdd(prevXQ16, qMul(vx, dtQ16));
+  let y = qAdd(prevYQ16, qMul(vy, dtQ16));
 
   const minX = toQ16(36), maxX = toQ16(ARENA_W - 36);
   const minY = toQ16(36), maxY = toQ16(ARENA_H - 36);
@@ -92,16 +102,33 @@ export function stepOdysseyFrame(state, accelXQ16 = 0, accelYQ16 = 0) {
   if (y < minY) { y = minY; vy = 0; }
   if (y > maxY) { y = maxY; vy = 0; }
 
-  // 2. 14-segment position-based Verlet silk scarf
+  // Paint luminous ribbon trail whenever the traveler glides (> 0.05 px)
+  const moveDist = Math.hypot(fromQ16(x) - fromQ16(prevXQ16), fromQ16(y) - fromQ16(prevYQ16));
+  let nextStrokes = state.paintStrokes;
+  if (moveDist > 0.05) {
+    const stroke = {
+      x1Q16: prevXQ16,
+      y1Q16: prevYQ16,
+      x2Q16: x,
+      y2Q16: y,
+      actIndex: state.actIndex,
+      op: state.sacredGeo.samsaraLotus.activeOperator,
+      width: Math.min(14, 5 + moveDist * 1.5),
+    };
+    nextStrokes = state.paintStrokes.length >= 600
+      ? [...state.paintStrokes.slice(1), stroke]
+      : [...state.paintStrokes, stroke];
+  }
+
   const nextRibbon = state.ribbon.map((seg) => ({ ...seg }));
-  nextRibbon[0].xQ16 = x;
-  nextRibbon[0].yQ16 = y;
+  nextRibbon.at(0).xQ16 = x;
+  nextRibbon.at(0).yQ16 = y;
   const restLen = 5.5;
   const segDamp = toQ16(0.86);
 
   for (let i = 1; i < nextRibbon.length; i++) {
-    const cur = nextRibbon[i];
-    const prev = nextRibbon[i - 1];
+    const cur = nextRibbon.at(i);
+    const prev = nextRibbon.at(i - 1);
     const svx = qMul(qSub(cur.xQ16, cur.oldXQ16), segDamp);
     const svy = qMul(qSub(cur.yQ16, cur.oldYQ16), segDamp);
     cur.oldXQ16 = cur.xQ16;
@@ -119,7 +146,6 @@ export function stepOdysseyFrame(state, accelXQ16 = 0, accelYQ16 = 0) {
     }
   }
 
-  // 3. Expanding harmonic chime wave & radial lotus node illumination
   const nextPulse =
     state.pulseRadiusQ16 > 0 && state.pulseRadiusQ16 < toQ16(160)
       ? qAdd(state.pulseRadiusQ16, toQ16(5.0))
@@ -142,7 +168,6 @@ export function stepOdysseyFrame(state, accelXQ16 = 0, accelYQ16 = 0) {
     };
   });
 
-  // 4. Advance 6502 micro-cycle every 15 ticks (4 Hz bus clock)
   const nextCpu =
     tick % 15 === 0
       ? stepCpu6502Cycle(
@@ -158,6 +183,7 @@ export function stepOdysseyFrame(state, accelXQ16 = 0, accelYQ16 = 0) {
     tick,
     traveler: { xQ16: x, yQ16: y, vxQ16: vx, vyQ16: vy },
     ribbon: nextRibbon,
+    paintStrokes: nextStrokes,
     nodes: nextNodes,
     cpu6502: nextCpu,
     pulseRadiusQ16: nextPulse,
@@ -170,6 +196,7 @@ export function buildOdysseyReceipt(state) {
     schema: "ndh.radial.cosmology.comic.v1",
     act: state.actIndex + 1,
     tick: state.tick,
+    paintedStrokes: state.paintStrokes.length,
     illuminatedNodes: `${illuminatedCount}/${state.nodes.length}`,
     meruAxisStill: state.sacredGeo.meruAxis.isStill,
     s16State: state.sacredGeo.s16State,
