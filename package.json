@@ -1,0 +1,10 @@
+{
+  "name": "radial-cosmology-comic-odyssey",
+  "version": "1.0.0",
+  "description": "Multi-act interactive radial comic painting adventure uniting spectral Journey-inspired WebAudio, Buddhist sacred geometry (MeruAxis & S16 algebra), and a cycle-accurate 6502 virtual register bus.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/odyssey-kernel.test.mjs"
+  },
+  "license": "MIT"
+}
